@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Loan Repayment System</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            color: #333;
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        h1, h2 {
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Loan Repayment System</h1>
+
+    <div class="form-group">
+        <label for="applicationId">Application ID:</label>
+        <input type="number" id="applicationId" name="applicationId" th:value="${applicationId}" />
+    </div>
+
+    <div class="form-group">
+        <button onclick="getRepaymentSchedule()">Get Repayment Schedule</button>
+        <button onclick="getOutstandingBalance()">Get Outstanding Balance</button>
+        <button onclick="generateRepaymentScheduleForm()">Generate Repayment Schedule</button>
+    </div>
+
+    <div id="repaymentSchedule" style="display: none;">
+        <h2>Repayment Schedule</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Due Date</th>
+                <th>Amount Due</th>
+                <th>Payment Date</th>
+                <th>Payment Status</th>
+                <th>Make Payment</th>
+            </tr>
+            </thead>
+            <tbody id="scheduleBody">
+            </tbody>
+        </table>
+    </div>
+
+    <div id="outstandingBalance" style="display: none;">
+        <h2>Outstanding Balance</h2>
+        <p id="balanceAmount"></p>
+    </div>
+
+    <div id="generateForm" style="display: none;">
+        <h2>Generate Repayment Schedule</h2>
+        <div class="form-group">
+            <label for="loanAmount">Loan Amount:</label>
+            <input type="number" id="loanAmount" name="loanAmount" />
+        </div>
+        <div class="form-group">
+            <label for="installments">Number of Installments:</label>
+            <input type="number" id="installments" name="installments" />
+        </div>
+        <div class="form-group">
+            <label for="days">Days Between Installments:</label>
+            <input type="number" id="days" name="days" />
+        </div>
+        <button onclick="generateSchedule()">Generate Schedule</button>
+    </div>
+</div>
+
+<script>
+    const applicationId = document.getElementById('applicationId').value;
+    function getRepaymentSchedule() {
+        const appId = document.getElementById('applicationId').value;
+        fetch(`/repayments/schedule/${appId}`)
+            .then(response => response.json())
+            .then(data => {
+                const scheduleBody = document.getElementById('scheduleBody');
+                scheduleBody.innerHTML = '';
+                data.forEach(repayment => {
+                    const row = `
+                        <tr>
+                            <td>${repayment.dueDate}</td>
+                            <td>${repayment.amountDue}</td>
+                            <td>${repayment.paymentDate ? repayment.paymentDate : 'Pending'}</td>
+                            <td>${repayment.paymentStatus}</td>
+                            <td><button onclick="makePayment(${repayment.repaymentId})">Make Payment</button></td>
+                        </tr>
+                    `;
+                    scheduleBody.innerHTML += row;
+                });
+                document.getElementById('repaymentSchedule').style.display = 'block';
+                document.getElementById('outstandingBalance').style.display = 'none';
+                document.getElementById('generateForm').style.display = 'none';
+            });
+    }
+
+    function makePayment(repaymentId) {
+        const paymentDate = prompt("Enter payment date (YYYY-MM-DD):");
+        if (paymentDate) {
+            fetch(`/repayments/payment/${repaymentId}?paymentDate=${paymentDate}`, { method: 'POST' })
+                .then(() => getRepaymentSchedule());
+        }
+    }
+
+    function getOutstandingBalance() {
+        const appId = document.getElementById('applicationId').value;
+        fetch(`/repayments/balance/${appId}`)
+            .then(response => response.text())
+            .then(balance => {
+                document.getElementById('balanceAmount').textContent = `Outstanding Balance: ${balance}`;
+                document.getElementById('outstandingBalance').style.display = 'block';
+                document.getElementById('repaymentSchedule').style.display = 'none';
+                document.getElementById('generateForm').style.display = 'none';
+            });
+    }
+
+    function generateRepaymentScheduleForm() {
+        document.getElementById('generateForm').style.display = 'block';
+        document.getElementById('outstandingBalance').style.display = 'none';
+        document.getElementById('repaymentSchedule').style.display = 'none';
+    }
+
+    function generateSchedule() {
+        const appId = document.getElementById('applicationId').value;
+        const loanAmount = document.getElementById('loanAmount').value;
+        const installments = document.getElementById('installments').value;
+        const days = document.getElementById('days').value;
+
+        fetch(`/repayments/generate/${appId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `loanAmount=${loanAmount}&numberOfInstallments=${installments}&daysBetweenInstallments=${days}`
+        })
+            .then(() => getRepaymentSchedule());
+    }
+</script>
+</body>
+</html>
